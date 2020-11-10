@@ -55,7 +55,7 @@ export class FeedService {
   }
 
   fromUrl(url: string, options: FeedParserOptions): Observable<FeedParserResult> {
-    const parserUrl = `${this.getApiBase()}api/feed/live?url=${encodeURIComponent(url)}`
+    const parserUrl = `${this.getApiBase()}api/feed/playground?url=${encodeURIComponent(url)}`
       + this.feedUrlFragment('rule', options)
       + this.feedUrlFragment('output', options)
       + this.feedUrlFragment('content', options);

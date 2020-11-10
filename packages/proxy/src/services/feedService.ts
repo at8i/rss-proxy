@@ -15,6 +15,7 @@ import {siteService} from './siteService';
 import {Request} from 'express';
 import logger from '../logger';
 import {config} from '../config';
+import httpUtil from '../httpUtil';
 
 
 export interface GetResponse {
@@ -37,7 +38,7 @@ export interface FeedParserError {
 
 
 export const feedService =  new class FeedService {
-  async mapToFeed(url: string, options: FeedParserOptions, canUseNativeFeed: boolean): Promise<FeedParserResult | GetResponse> {
+  async mapToFeed(url: string, options: FeedParserOptions, useNativeFeed: boolean): Promise<FeedParserResult | GetResponse> {
 
     const response = await siteService.download(url);
 
@@ -49,8 +50,7 @@ export const feedService =  new class FeedService {
     switch (contentType) {
       case 'text/html':
         const feedUrls = this.findFeedUrls(doc, url);
-        const returnNativeFeed = canUseNativeFeed && config.preferNativeFeed && feedUrls.length > 0
-          && isEmpty(options.rule);
+        const returnNativeFeed = useNativeFeed && feedUrls.length === 1;
         if (returnNativeFeed) {
           return await siteService.download(feedUrls[0].url);
         } else {
@@ -63,7 +63,7 @@ export const feedService =  new class FeedService {
     }
   }
 
-  public parseFeed(url: string, request: Request, canUseNativeFeed: boolean = false): Promise<FeedParserResult | GetResponse> {
+  public parseFeed(url: string, request: Request, preferNativeFeed: boolean = false): Promise<FeedParserResult | GetResponse> {
       const actualOptions: Partial<FeedParserOptions> = {};
       if (request.query.output) {
         actualOptions.output = request.query.output as OutputType;
@@ -78,11 +78,11 @@ export const feedService =  new class FeedService {
 
       logger.info(`Parsing ${url} with options ${JSON.stringify(options)}`);
 
-      if (!url) {
+      if (!httpUtil.isUrl(url)) {
         return Promise.reject({message: 'Param url is missing'} as FeedParserError);
       }
 
-      return feedService.mapToFeed(url, options, canUseNativeFeed);
+      return feedService.mapToFeed(url, options, preferNativeFeed);
     }
 
 

@@ -4,16 +4,21 @@ import logger from '../logger';
 import {FeedParserError, feedService, GetResponse} from '../services/feedService';
 import {FeedParserResult, OutputType} from '@rss-proxy/core';
 import {analyticsService} from '../services/analyticsService';
+import httpUtil from '../httpUtil';
 
 export const feedEndpoint = new class FeedEndpoint {
   register(app: Express) {
 
-    app.get('/api/feed/live', cors(), (request: Request, response: Response) => {
+    /**
+     * Used by the playground
+     * @return json of the verbose feedparser data, or an error
+     */
+    app.get('/api/feed/playground', cors(), (request: Request, response: Response) => {
       try {
         const url = request.query.url as string;
         logger.info(`live feed-mapping of ${url}`);
 
-        analyticsService.track('live-feed', request, {url});
+        analyticsService.track('playground-feed', request, {url});
 
         feedService.parseFeed(url, request)
           .then((feedParserResult: FeedParserResult) => {
@@ -30,13 +35,19 @@ export const feedEndpoint = new class FeedEndpoint {
       }
     });
 
+    /**
+     *
+     * @param url, mandatory string
+     * @param preferNativeFeed, opt-out boolean to prefer the single exposed feed
+     */
     app.get('/api/feed', cors(), (request: Request, response: Response) => {
       try {
         const url = request.query.url as string;
-        logger.info(`feed-mapping of ${url}`);
+        const preferNativeFeed = request.query.preferNativeFeed !== 'false';
+        logger.info(`feed for '${url}', nativeFeed=${preferNativeFeed}`);
         analyticsService.track('feed', request, {url});
 
-        feedService.parseFeed(url, request, true)
+        feedService.parseFeed(url, request, preferNativeFeed)
           .then((feedData: FeedParserResult | GetResponse) => {
             if ((feedData as any)['type'] === 'GetResponse') {
               const getResponse = feedData as GetResponse;
@@ -50,12 +61,13 @@ export const feedEndpoint = new class FeedEndpoint {
 
           })
           .catch((err: FeedParserError) => {
+            // todo mag always return a valid feed, not a json error
             logger.error(`Failed to proxy ${url}, cause ${err.message}`);
             response.json(err);
           });
 
       } catch (e) {
-        response.json({message: e.message} as FeedParserError);
+        response.json({message: e.message});
       }
     });
 
